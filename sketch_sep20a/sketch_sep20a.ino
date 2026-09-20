@@ -8,13 +8,12 @@ const char* WIFI_CLAVE = "Handbook7";
 constexpr int PIN_SERVO = 4;  // GPIO 4, no el cuarto pin físico
 constexpr int ANGULO_MIN = 45;
 constexpr int ANGULO_MAX = 135;
-constexpr unsigned long INTERVALO_MS = 20;
+constexpr unsigned long INTERVALO_GIRO_MS = 1000;
 
 WebServer servidor(80);
 Servo servo;
 
 bool enMovimiento = true;
-int angulo = ANGULO_MIN;
 int sentido = 1;
 unsigned long ultimoPaso = 0;
 
@@ -53,7 +52,6 @@ void parar() {
 }
 
 void iniciar() {
-  ultimoPaso = millis();
   enMovimiento = true;
   servidor.send(200, "text/plain; charset=utf-8", "Movimiento reanudado");
 }
@@ -84,12 +82,11 @@ void setup() {
 
   servo.setPeriodHertz(50);
   servo.attach(PIN_SERVO);
-  servo.write(angulo);
+  servo.write(ANGULO_MAX);
   ultimoPaso = millis();
 }
 
 void loop() {
-  // Siempre atendemos las órdenes, incluso con el servo pausado.
   servidor.handleClient();
 
   if (!enMovimiento) {
@@ -98,15 +95,21 @@ void loop() {
 
   unsigned long ahora = millis();
 
-  if (ahora - ultimoPaso >= INTERVALO_MS) {
-    ultimoPaso = ahora;
-    angulo += sentido;
-    servo.write(angulo);
+  // Esperamos el intervalo de giro antes de mover el servo nuevamente.
+  if (ahora - ultimoPaso < INTERVALO_GIRO_MS) {
+    return;
+  }
 
-    if (angulo >= ANGULO_MAX) {
-      sentido = -1;
-    } else if (angulo <= ANGULO_MIN) {
-      sentido = 1;
-    }
+  Serial.println("Terminó la espera");
+
+  ultimoPaso = ahora;
+  if (sentido == 1) {
+    sentido = -1;
+    servo.write(ANGULO_MIN);
+    Serial.println("Girando a " + String(ANGULO_MIN));
+  } else {
+    sentido = 1;
+    servo.write(ANGULO_MAX);
+    Serial.println("Girando a " + String(ANGULO_MAX));
   }
 }
